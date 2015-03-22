@@ -18,12 +18,12 @@ class LibTestCase(unittest.TestCase):
     def test_to_str_unicode(self):
         self.assertFalse(isinstance(source.lib.to_str(u"Hello test"), unicode))
 
-    def test_counters(self):
+    def test_get_counters(self):
         content = "src='www.google-analytics.com/ga.js.index'"
         self.assertEqual(len(source.lib.get_counters(content)), 1)
         self.assertEqual(source.lib.get_counters(content)[0], 'GOOGLE_ANALYTICS')
 
-    def test_counters_absent(self):
+    def test_get_counters_absent(self):
         self.assertEqual(len(source.lib.get_counters("src='www.tech-mail.ru/ga.js.min'")), 0)
 
     def test_check_for_meta(self):
@@ -37,7 +37,7 @@ class LibTestCase(unittest.TestCase):
         content = '<meta http-equiv="refresh" content="3;http://www.youtube.com/"><head>'
         self.assertIsNone(source.lib.check_for_meta(content, ''))
 
-    def test_market(self):
+    def test_fix_market_url(self):
         url = 'market://search?q=pname:net.mandaria.tippytipper'
         self.assertEqual(source.lib.fix_market_url(url),
                          'http://play.google.com/store/apps/search?q=pname:net.mandaria.tippytipper')
@@ -52,17 +52,66 @@ class LibTestCase(unittest.TestCase):
         mockIO = mock.Mock()
         mockIO.getvalue.return_value = content
 
-        with mock.patch("pycurl.Curl", mock.Mock(return_value=mockCurl)):
-            with mock.patch("StringIO.StringIO", mock.Mock(return_value=mockIO)):
-                self.assertEqual(source.lib.make_pycurl_request('tech-mail.ru', 1)[1], redirectUrl)
+        with mock.patch("StringIO.StringIO", mock.Mock(return_value=mockIO)):
+             curl_mock = mock.Mock()
+             curl_mock.getinfo.return_value = 'url'
+             with mock.patch('source.lib.pycurl.Curl', mock.Mock(return_value=curl_mock)):
+                self.assertEqual(source.lib.make_pycurl_request('url', None, 'user_agent'), ('', 'url'))
 
     def test_make_pycurl_request_useragent(self):
-        userAgent = "Mozila"
+        curl_mock = mock.Mock()
+        curl_mock.getinfo.return_value = 'url'
+        with mock.patch('source.lib.pycurl.Curl', mock.Mock(return_value=curl_mock)):
+            self.assertEqual(source.lib.make_pycurl_request('url', None, 'Safazila'), ('', 'url'))
 
-        mockCurl = mock.Mock()
-        mockSetopt = mock.Mock()
-        mockCurl.setopt = mockSetopt
+    def test_get_url_check_error(self):
+        with mock.patch('source.lib.make_pycurl_request', mock.Mock(side_effect=ValueError)):
+            with mock.patch('source.lib.logger',mock.Mock()):
+                self.assertEquals(source.lib.get_url("url",2),("url",'ERROR',None))
 
-        with mock.patch("pycurl.Curl", mock.Mock(return_value=mockCurl)):
-            source.lib.make_pycurl_request('tech-mail.ru', 1, userAgent)
-            mockSetopt.assert_any_call(source.lib.pycurl.USERAGENT, userAgent)
+    def test_get_url_check_redirect(self):
+        with mock.patch('source.lib.make_pycurl_request', mock.Mock(return_value=('content', 'http://odnoklassniki.ru/unittest.redirect'))):
+            self.assertEquals(source.lib.get_url('http://odnoklassniki.ru/unittest.redirect',1),(None,None,'content'))
+
+    #god-case?
+    def test_get_url_not_redirect(self):
+        with mock.patch('source.lib.make_pycurl_request', mock.Mock(return_value=('content', 'http://ololo.ru/sailorspirit'))):
+            self.assertEquals(source.lib.get_url("http://ololo.ru/sailorspirit",1),("http://ololo.ru/sailorspirit",source.lib.REDIRECT_HTTP,'content'))
+
+    def test_get_url_meta(self):
+        with mock.patch('source.lib.make_pycurl_request', mock.Mock(return_value=('content', None))):
+            with mock.patch('source.lib.check_for_meta',mock.Mock(return_value=(None))):
+                self.assertEquals(source.lib.get_url('url',1),(None,None,'content'))
+
+    def test_get_url_not_meta(self):
+        with mock.patch('source.lib.make_pycurl_request', mock.Mock(return_value=('content', None))):
+            with mock.patch('source.lib.check_for_meta',mock.Mock(return_value=('new_url'))):
+                self.assertEquals(source.lib.get_url('url',1),('new_url',source.lib.REDIRECT_META,'content'))
+
+    def test_get_url_market(self):
+        with mock.patch('source.lib.make_pycurl_request', mock.Mock(return_value=('content', 'market://ololo.ru/sailorspirit'))):
+            self.assertEquals(source.lib.get_url("market://ololo.ru/sailorspirit",1),(u"http://play.google.com/store/apps/ololo.ru/sailorspirit",source.lib.REDIRECT_HTTP,'content'))
+
+    def test_get_redirect_history_mm_ok(self):
+        with mock.patch('source.lib.prepare_url',mock.Mock(return_value='http://my.mail.ru/apps/lel')):
+            self.assertEquals(source.lib.get_redirect_history("http://my.mail.ru/apps/lel",3,30),([],["http://my.mail.ru/apps/lel"],[]))
+
+    def test_get_redirect_error(self):
+        with mock.patch('source.lib.prepare_url',mock.Mock(return_value='url1')),\
+            mock.patch('source.lib.get_url',mock.Mock(return_value=('url2','ERROR','content'))),\
+            mock.patch('source.lib.get_counters',mock.Mock(return_value=['GOOGLE_ANALYTICS'])):
+                self.assertEquals(source.lib.get_redirect_history('url1',3),(['ERROR'],['url1','url2'],['GOOGLE_ANALYTICS']));#useragent does not matter
+    def test_get_redirect_max_redirects(self):
+        with mock.patch('source.lib.prepare_url',mock.Mock(return_value='url1')),\
+            mock.patch('source.lib.get_url',mock.Mock(return_value=('url2','REDIR','content'))),\
+            mock.patch('source.lib.get_counters',mock.Mock(return_value=['GOOGLE_ANALYTICS'])):
+                self.assertEquals(source.lib.get_redirect_history('url1',3,1),(['REDIR'],['url1','url2'],['GOOGLE_ANALYTICS']))#max_redirect in argument to end cycle
+    def test_get_redirect_check_cycle_redir(self):
+        with mock.patch('source.lib.prepare_url',mock.Mock(return_value='url1')),\
+            mock.patch('source.lib.get_url',mock.Mock(return_value=('url1','CYCLE','content'))),\
+            mock.patch('source.lib.get_counters',mock.Mock(return_value=['GOOGLE_ANALYTICS'])):
+                self.assertEquals(source.lib.get_redirect_history('url1',3,1),(['CYCLE'],['url1','url1'],['GOOGLE_ANALYTICS']))
+    def test_get_redirect_no_redir(self):
+        with mock.patch('source.lib.prepare_url',mock.Mock(return_value='url1')),\
+            mock.patch('source.lib.get_url',mock.Mock(return_value=(None,None,None))):
+                self.assertEquals(source.lib.get_redirect_history('url1',3),([],['url1'],[]))

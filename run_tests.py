@@ -4,6 +4,7 @@ import os
 import socket
 import sys
 import unittest
+
 from contextlib import contextmanager
 
 source_dir = os.path.join(os.path.dirname(__file__), 'source')
