@@ -40,3 +40,10 @@ class UtilsTestCase(unittest.TestCase):
                 with mock.patch('os.setsid', mock.Mock()):
                     utils.daemonize()
                     self.assertEqual(mock_exit.call_count, 1)
+    def test_create_pidfile(self):
+        pid = 42
+        with mock.patch('source.lib.utils.open', mock.mock_open(), create=True) as m_open:
+            with mock.patch('os.getpid', mock.Mock(return_value=pid)):
+                utils.create_pidfile('/some/path')
+        m_open.assert_called_once_with('/some/path', 'w')
+        m_open().write.assert_called_once_with(str(pid))
