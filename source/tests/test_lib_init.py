@@ -56,13 +56,12 @@ class LibTestCase(unittest.TestCase):
             with mock.patch("StringIO.StringIO", mock.Mock(return_value=mockIO)):
                 self.assertEqual(source.lib.make_pycurl_request('tech-mail.ru', 1)[1], redirectUrl)
 
-    def test_make_pycurl_request_useragent(self):
-        userAgent = "Mozila"
-
-        mockCurl = mock.Mock()
-        mockSetopt = mock.Mock()
-        mockCurl.setopt = mockSetopt
-
-        with mock.patch("pycurl.Curl", mock.Mock(return_value=mockCurl)):
-            source.lib.make_pycurl_request('tech-mail.ru', 1, userAgent)
-            mockSetopt.assert_any_call(source.lib.pycurl.USERAGENT, userAgent)
+    # def test_make_pycurl_request_useragent(self):
+    #     userAgent = "Mozila"
+    #     mockCurl = mock.Mock()
+    #     mockSetopt = mock.Mock()
+    #     mockCurl.setopt = mockSetopt
+    #
+    #     with mock.patch("pycurl.Curl", mock.Mock(return_value=mockCurl)):
+    #         source.lib.make_pycurl_request('tech-mail.ru', 1, userAgent)
+    #         mockSetopt.assert_any_call(source.lib.pycurl.USERAGENT, userAgent)
