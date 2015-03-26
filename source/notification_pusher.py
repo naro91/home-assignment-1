@@ -109,7 +109,7 @@ def stop_handler(signum):
     run_application = False
     exit_code = SIGNAL_EXIT_CODE_OFFSET + signum
 
-
+# функция изменена в целях облегчения тестирования
 def main_loop(config):
     """
     Основной цикл приложения.
@@ -148,18 +148,35 @@ def main_loop(config):
     logger.info('Run main loop. Worker pool size={count}. Sleep time is {sleep}.'.format(
         count=config.WORKER_POOL_SIZE, sleep=config.SLEEP
     ))
+    # перенес цикл в отдельную функцию для облегчения тестирования
+    run_greenlet_for_task(run_application, worker_pool, tube, config, processed_task_queue)
 
+
+
+def run_greenlet_for_task(worker_pool, tube, config, processed_task_queue):
     while run_application:
         free_workers_count = worker_pool.free_count()
 
         logger.debug('Pool has {count} free workers.'.format(count=free_workers_count))
+        # перенес цикл запуска в отдельную функцию для упрощения тестирования
+        start_worker_in_cycle(free_workers_count, tube, config, processed_task_queue, worker_pool)
 
-        for number in xrange(free_workers_count):
+        done_with_processed_tasks(processed_task_queue)
+
+        sleep(config.SLEEP)
+    else:
+        logger.info('Stop application loop.')
+
+def start_worker_in_cycle(free_workers_count, tube, config, processed_task_queue, worker_pool):
+    for number in xrange(free_workers_count):
             logger.debug('Get task from tube for worker#{number}.'.format(number=number))
 
             task = tube.take(config.QUEUE_TAKE_TIMEOUT)
+            # перенес старт worker в отдельную функцию для облегчения тестирования
+            start_worker(number, task, processed_task_queue, config, worker_pool)
 
-            if task:
+def start_worker(number, task, processed_task_queue, config, worker_pool):
+    if task:
                 logger.info('Start worker#{number} for task id={task_id}.'.format(
                     task_id=task.task_id, number=number
                 ))
@@ -173,12 +190,6 @@ def main_loop(config):
                 )
                 worker_pool.add(worker)
                 worker.start()
-
-        done_with_processed_tasks(processed_task_queue)
-
-        sleep(config.SLEEP)
-    else:
-        logger.info('Stop application loop.')
 
 
 def parse_cmd_args(args):

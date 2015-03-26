@@ -3,7 +3,6 @@ import mock
 __author__ = 'mid'
 
 import unittest
-import source.lib
 from source.lib import utils
 from urllib2 import URLError
 
