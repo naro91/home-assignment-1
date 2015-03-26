@@ -3,7 +3,6 @@ import mock
 __author__ = 'mid'
 
 import unittest
-import source.lib
 from source.lib import utils
 
 class UtilsTestCase(unittest.TestCase):

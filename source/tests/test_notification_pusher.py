@@ -1,6 +1,13 @@
+# coding: utf-8
+
+import json
 import unittest
 import mock
-from notification_pusher import create_pidfile
+from notification_pusher import create_pidfile, notification_worker, done_with_processed_tasks
+import requests
+import tarantool
+from source import notification_pusher
+from source.notification_pusher import stop_handler, start_worker, start_worker_in_cycle, run_greenlet_for_task
 
 
 class NotificationPusherTestCase(unittest.TestCase):
@@ -13,3 +20,142 @@ class NotificationPusherTestCase(unittest.TestCase):
 
         m_open.assert_called_once_with('/file/path', 'w')
         m_open().write.assert_called_once_with(str(pid))
+
+    def test_notification_worker(self):
+        response = mock.Mock()
+        response.status_code = 200
+        requests_post_mock = mock.Mock(return_value=response)
+        logger_info_mock = mock.Mock()
+        task_queue_mock = mock.Mock()
+        task_queue_mock.put = mock.Mock()
+        task_mock = mock.Mock()
+        task_mock.data = {'callback_url' : 'tech-mail.ru'}
+        task_mock.task_id = 0
+        current_thread = mock.Mock()
+        with mock.patch('notification_pusher.current_thread', mock.Mock(return_value=current_thread), create=True):
+            with mock.patch('notification_pusher.logger.info', logger_info_mock, create=True):
+                with mock.patch('notification_pusher.requests.post', requests_post_mock, create=True):
+                    notification_worker(task_mock, task_queue_mock, 'test_args', test_kwargs = 'ok')
+                    logger_info_mock.assert_any_call('Send data to callback url [tech-mail.ru].')
+                    requests_post_mock.assert_called_once_with('tech-mail.ru', 'test_args', data='{"id": 0}', test_kwargs = 'ok')
+                    logger_info_mock.assert_any_call('Callback url [tech-mail.ru] response status code=200.')
+                    task_queue_mock.put.assert_called_once_with((task_mock, 'ack'))
+                    self.assertEqual(current_thread.name, "pusher.worker#0")
+
+    def test_notification_worker_exception(self):
+        logger_info_mock = mock.Mock()
+        task_queue_mock = mock.Mock()
+        task_queue_mock.put = mock.Mock()
+        task_mock = mock.Mock()
+        task_mock.data = {'callback_url' : 'tech-mail.ru'}
+        task_mock.task_id = 0
+        current_thread_mock = mock.Mock()
+        with mock.patch('notification_pusher.current_thread', mock.Mock(return_value=current_thread_mock), create=True):
+            with mock.patch('notification_pusher.logger.info', logger_info_mock, create=True):
+                with mock.patch('notification_pusher.requests.post', mock.Mock(side_effect=requests.RequestException), create=True):
+                    notification_worker(task_mock, task_queue_mock, 'test_args', test_kwargs = 'ok')
+                    logger_info_mock.assert_any_call('Send data to callback url [tech-mail.ru].')
+                    task_queue_mock.put.assert_called_once_with((task_mock, 'bury'))
+                    self.assertEqual(current_thread_mock.name, "pusher.worker#0")
+
+
+    def test_done_with_processed_tasks(self):
+        task_mock = mock.Mock()
+        task_mock.task_id = 1
+        task_mock.my_action = mock.Mock()
+        task_queue_mock = mock.Mock()
+        task_queue_mock.qsize = mock.Mock(return_value=1)
+        task_queue_mock.get_nowait = mock.Mock(return_value=(task_mock, 'my_action'))
+        with mock.patch('notification_pusher.logger.debug', mock.Mock(), create=True):
+            done_with_processed_tasks(task_queue_mock)
+            task_mock.my_action.assert_called_once_with()
+
+    def test_done_with_processed_tasks_exeption(self):
+        task_mock = mock.Mock()
+        task_mock.my_action = mock.Mock(side_effect=tarantool.DatabaseError)
+        task_queue_mock = mock.Mock()
+        task_queue_mock.qsize = mock.Mock(return_value=2)
+        task_queue_mock.get_nowait = mock.Mock(return_value=(task_mock, 'my_action'))
+        logger_debug = mock.Mock()
+        logger_exception = mock.Mock()
+        with mock.patch('notification_pusher.logger.debug', logger_debug, create=True):
+            with mock.patch('notification_pusher.logger.exception', logger_exception, create=True):
+                done_with_processed_tasks(task_queue_mock)
+                self.assertTrue(logger_exception.called)
+
+
+    def test_stop_handler(self):
+        temp_run_application = notification_pusher.run_application
+        temp_exit_code = notification_pusher.exit_code
+        signum = 1
+        logger_info_mock = mock.Mock()
+        with mock.patch('notification_pusher.current_thread', mock.Mock(), create=True):
+            with mock.patch('notification_pusher.logger.info', logger_info_mock, create=True):
+                stop_handler(signum)
+                self.assertTrue(notification_pusher.run_application == False)
+                self.assertTrue(notification_pusher.exit_code == (notification_pusher.SIGNAL_EXIT_CODE_OFFSET + signum))
+                logger_info_mock.assert_called_once_with('Got signal #{signum}.'.format(signum=signum))
+        notification_pusher.run_application = temp_run_application
+        notification_pusher.exit_code = temp_exit_code
+
+    def test_start_worker(self):
+        task_mock = mock.Mock()
+        task_mock.task_id = 1
+        worker_mock = mock.Mock()
+        worker_mock.start = mock.Mock()
+        worker_pool_mock = mock.Mock()
+        worker_pool_mock.add = mock.Mock()
+        processed_task_queue_mock = mock.Mock()
+        config_mock = mock.Mock()
+        logger_info_mock = mock.Mock()
+        number = 1
+        with mock.patch('notification_pusher.logger.info',logger_info_mock, create=True ):
+            with mock.patch('source.notification_pusher.Greenlet', mock.Mock(return_value=worker_mock), create=True):
+                start_worker(number, task_mock, processed_task_queue_mock, config_mock, worker_pool_mock)
+                logger_info_mock.assert_called_once_with('Start worker#1 for task id=1.')
+                worker_pool_mock.add.assert_called_once_with(worker_mock)
+                worker_mock.start.assert_called_once_with()
+
+    def test_start_worker_in_cycle(self):
+        free_workers_count = 1
+        tube_mock = mock.Mock()
+        task_mock = mock.Mock()
+        task_mock.task_id = 1
+        worker_pool_mock = mock.Mock()
+        worker_pool_mock.add = mock.Mock()
+        processed_task_queue_mock = mock.Mock()
+        config_mock = mock.Mock()
+        logger_debug_mock = mock.Mock()
+        with mock.patch('notification_pusher.logger.debug', logger_debug_mock, create=True):
+            with mock.patch('source.notification_pusher.Greenlet', mock.Mock(return_value=mock.Mock()), create=True):
+                start_worker_in_cycle(free_workers_count, tube_mock, config_mock, processed_task_queue_mock, worker_pool_mock)
+                logger_debug_mock.assert_called_once_with('Get task from tube for worker#0.')
+
+    def test_run_greenlet_for_task_run_app_True(self):
+        tube_mock = mock.Mock()
+        task_mock = mock.Mock()
+        logger_info_mock = mock.Mock()
+        task_mock.task_id = 1
+        worker_pool_mock = mock.Mock()
+        worker_pool_mock.free_count = mock.Mock(return_value=1)
+        processed_task_queue_mock = mock.Mock()
+        config_mock = mock.Mock()
+        config_mock.SLEEP = 10
+        logger_debug_mock = mock.Mock()
+        # в этой функции меняется переменная проверяемая в условии цикла
+        def sleep(param):
+            notification_pusher.run_application = False
+            pass
+        with mock.patch('notification_pusher.logger.debug', logger_debug_mock, create=True):
+            with mock.patch('notification_pusher.logger.info', logger_info_mock, create=True):
+                with mock.patch('source.notification_pusher.Greenlet', mock.Mock(return_value=mock.Mock()), create=True):
+                    with mock.patch('source.notification_pusher.done_with_processed_tasks', mock.Mock(), create=True):
+                        with mock.patch('source.notification_pusher.sleep', sleep, create=True):
+                            run_greenlet_for_task(worker_pool_mock, tube_mock, config_mock, processed_task_queue_mock)
+                            logger_debug_mock.assert_any_call('Pool has 1 free workers.')
+                            self.assertTrue(logger_debug_mock.call_count == 2)
+                            logger_info_mock.assert_any_call('Stop application loop.')
+
+
+    def test_main_loop(self):
+        config = mock.Mock()
