@@ -7,7 +7,8 @@ from notification_pusher import create_pidfile, notification_worker, done_with_p
 import requests
 import tarantool
 from source import notification_pusher
-from source.notification_pusher import stop_handler, start_worker, start_worker_in_cycle, run_greenlet_for_task
+from source.notification_pusher import stop_handler, start_worker, start_worker_in_cycle, run_greenlet_for_task, \
+    main_loop, parse_cmd_args, daemonize, install_signal_handlers, daemon_os_fork
 
 
 class NotificationPusherTestCase(unittest.TestCase):
@@ -159,3 +160,56 @@ class NotificationPusherTestCase(unittest.TestCase):
 
     def test_main_loop(self):
         config = mock.Mock()
+        logger = mock.Mock()
+        with mock.patch('notification_pusher.logger', logger, create=True):
+            with mock.patch('source.notification_pusher.Pool', mock.Mock(), create=True):
+                with mock.patch('source.notification_pusher.tarantool_queue', mock.Mock(), create=True):
+                    with mock.patch('source.notification_pusher.Greenlet', mock.Mock(return_value=mock.Mock()), create=True):
+                        with mock.patch('source.notification_pusher.run_greenlet_for_task', mock.Mock(), create=True):
+                            main_loop(config)
+
+    # def test_parse_cmd_args(self):
+    #     print parse_cmd_args({'--pid', '-P'})
+
+    def test_daemonize(self):
+        def os_fork():
+            try:
+                os_fork.a += 1
+            except AttributeError:
+                os_fork.a = 0
+            return os_fork.a
+        os = mock.Mock()
+        os.fork = os_fork
+        os.setsid = mock.Mock()
+        os._exit = mock.Mock()
+        with mock.patch('source.notification_pusher.os', os, create=True):
+            daemonize()
+            os.setsid.assert_called_once_with()
+            self.assertTrue(os.fork() == 2)
+            os._exit.assert_called_once_with(0)
+            daemonize()
+            os.setsid.assert_called_once_with()
+            self.assertTrue(os._exit.call_count == 2)
+
+    def test_daemon_os_fork_exeption(self):
+        os = mock.Mock()
+        os.fork = mock.Mock(side_effect=OSError)
+        os.setsid = mock.Mock()
+        os._exit = mock.Mock()
+        with mock.patch('source.notification_pusher.os', os, create=True):
+            try:
+                daemon_os_fork()
+            except Exception as ex:
+                self.assertTrue(os._exit.call_count == 0)
+                self.assertTrue(os.setsid.call_count == 0)
+                pass
+
+    # def test_install_signal_handlers(self):
+    #     gevent_signal_mock = mock.Mock()
+    #     stop_handler_mock = mock.Mock()
+    #     with mock.patch('notification_pusher.gevent.signal', gevent_signal_mock, create=True):
+    #         with mock.patch('notification_pusher.stop_handler', stop_handler_mock, create=True):
+    #             install_signal_handlers()
+    #             self.assertEqual(gevent_signal_mock.call_count, 4)
+    #             for signum in (signal.SIGTERM, signal.SIGINT, signal.SIGHUP, signal.SIGQUIT):
+    #                 gevent_signal_mock.assert_any_call(signum, stop_handler_mock, signum)
