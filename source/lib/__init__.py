@@ -4,7 +4,6 @@ from logging import getLogger, NullHandler
 import re
 from urllib import quote, quote_plus
 from urlparse import urljoin, urlsplit, urlparse, urlunparse
-
 from bs4 import BeautifulSoup
 import pycurl
 
@@ -95,7 +94,7 @@ def make_pycurl_request(url, timeout, useragent=None):
     redirect_url = curl.getinfo(curl.REDIRECT_URL)
     curl.close()
     if redirect_url is not None:
-        redirect_url = to_unicode(redirect_url, 'ignore')
+            redirect_url = to_unicode(redirect_url, 'ignore')
     return content, redirect_url
 
 
@@ -124,7 +123,7 @@ def get_url(url, timeout, user_agent=None):
             redirect_type = REDIRECT_META
 
     if new_redirect_url and urlsplit(new_redirect_url).scheme == 'market':
-        new_redirect_url = fix_market_url(new_redirect_url)
+       new_redirect_url = fix_market_url(new_redirect_url)
 
     return prepare_url(new_redirect_url), redirect_type, content
 
