@@ -12,8 +12,9 @@ sys.path.insert(0, source_dir)
 
 from source.tests.test_notification_pusher import NotificationPusherTestCase
 from source.tests.test_redirect_checker import RedirectCheckerTestCase
-from source.tests.test_lib_init import LibTestCase
+from source.tests.test_init import LibTestCase
 from source.tests.test_utils import UtilsTestCase
+from source.tests.test_worker import WokerTestCase
 
 @contextmanager
 def mocked_connection():
@@ -30,7 +31,8 @@ if __name__ == '__main__':
         unittest.makeSuite(NotificationPusherTestCase),
         unittest.makeSuite(RedirectCheckerTestCase),
         unittest.makeSuite(LibTestCase),
-        unittest.makeSuite(UtilsTestCase)
+        unittest.makeSuite(UtilsTestCase),
+        unittest.makeSuite(WokerTestCase)
     ))
     with mocked_connection():
         result = unittest.TextTestRunner().run(suite)
