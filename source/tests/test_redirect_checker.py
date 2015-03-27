@@ -55,9 +55,9 @@ class RedirectCheckerTestCase(unittest.TestCase):
              patch('source.redirect_checker.spawn_workers', mock_spawn_workers),\
              patch('source.redirect_checker.active_children', mock.Mock(return_value=[mock_active_children]*config.WORKER_POOL_SIZE)),\
              patch('source.redirect_checker.sleep', mock_stop_cycle):
-            redirect_checker.main_loop(config)
-            self.assertEqual(mock_spawn_workers.call_count, 0)
-            redirect_checker.loop = True
+                redirect_checker.main_loop(config)
+                self.assertEqual(mock_spawn_workers.call_count, 0)
+                redirect_checker.loop = True
 
 
     def test_main_with_incorrect_type_of_param(self):
@@ -80,10 +80,10 @@ class RedirectCheckerTestCase(unittest.TestCase):
              patch('source.redirect_checker.main_loop', mock.Mock()),\
              patch('source.redirect_checker.os.path.realpath', mock.Mock()),\
              patch('source.redirect_checker.os.path.expanduser', mock.Mock()):
-            return_exitcode = redirect_checker.main(args)
-            self.assertEqual(return_exitcode, config.EXIT_CODE)
-            self.assertGreater(mock_daemonize.call_count, 0)
-            self.assertGreater(mock_create_pidfile.call_count, 0)
+                return_exitcode = redirect_checker.main(args)
+                self.assertEqual(return_exitcode, config.EXIT_CODE)
+                self.assertGreater(mock_daemonize.call_count, 0)
+                self.assertGreater(mock_create_pidfile.call_count, 0)
 
     def test_main_check_args_is_not_daemon_and_pidfile(self):
         args = mock.MagicMock()
@@ -99,7 +99,7 @@ class RedirectCheckerTestCase(unittest.TestCase):
              patch('source.redirect_checker.main_loop', mock.Mock()),\
              patch('source.redirect_checker.os.path.realpath', mock.Mock()),\
              patch('source.redirect_checker.os.path.expanduser', mock.Mock()):
-            return_exitcode = redirect_checker.main(args)
-            self.assertEqual(return_exitcode, config.EXIT_CODE)
-            self.assertEqual(mock_daemonize.call_count, 0)
-            self.assertEqual(mock_create_pidfile.call_count, 0)
+                return_exitcode = redirect_checker.main(args)
+                self.assertEqual(return_exitcode, config.EXIT_CODE)
+                self.assertEqual(mock_daemonize.call_count, 0)
+                self.assertEqual(mock_create_pidfile.call_count, 0)
