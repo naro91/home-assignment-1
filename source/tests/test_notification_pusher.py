@@ -6,8 +6,11 @@ import mock
 from notification_pusher import create_pidfile, notification_worker, done_with_processed_tasks
 import requests
 import tarantool
+import signal
 from source import notification_pusher
-from source.notification_pusher import stop_handler, start_worker, start_worker_in_cycle, run_greenlet_for_task
+from source.notification_pusher import stop_handler, start_worker, start_worker_in_cycle, run_greenlet_for_task, \
+    main_loop, parse_cmd_args, daemonize, install_signal_handlers, daemon_os_fork, load_config_from_pyfile, main, \
+    run_config, main_helper_function
 
 
 class NotificationPusherTestCase(unittest.TestCase):
@@ -159,3 +162,135 @@ class NotificationPusherTestCase(unittest.TestCase):
 
     def test_main_loop(self):
         config = mock.Mock()
+        logger = mock.Mock()
+        with mock.patch('notification_pusher.logger', logger, create=True):
+            with mock.patch('source.notification_pusher.Pool', mock.Mock(), create=True):
+                with mock.patch('source.notification_pusher.tarantool_queue', mock.Mock(), create=True):
+                    with mock.patch('source.notification_pusher.Greenlet', mock.Mock(return_value=mock.Mock()), create=True):
+                        with mock.patch('source.notification_pusher.run_greenlet_for_task', mock.Mock(), create=True):
+                            main_loop(config)
+
+    # def test_parse_cmd_args(self):
+    #     print parse_cmd_args({'--pid', '-P'})
+
+    def test_daemonize(self):
+        def os_fork():
+            try:
+                os_fork.a += 1
+            except AttributeError:
+                os_fork.a = 0
+            return os_fork.a
+        os = mock.Mock()
+        os.fork = os_fork
+        os.setsid = mock.Mock()
+        os._exit = mock.Mock()
+        with mock.patch('source.notification_pusher.os', os, create=True):
+            daemonize()
+            os.setsid.assert_called_once_with()
+            self.assertTrue(os.fork() == 2)
+            os._exit.assert_called_once_with(0)
+            daemonize()
+            os.setsid.assert_called_once_with()
+            self.assertTrue(os._exit.call_count == 2)
+
+    def test_daemon_os_fork_exeption(self):
+        os = mock.Mock()
+        os.fork = mock.Mock(side_effect=OSError)
+        os.setsid = mock.Mock()
+        os._exit = mock.Mock()
+        with mock.patch('source.notification_pusher.os', os, create=True):
+            try:
+                daemon_os_fork()
+            except Exception as ex:
+                self.assertTrue(os._exit.call_count == 0)
+                self.assertTrue(os.setsid.call_count == 0)
+
+    def test_install_signal_handlers(self):
+        gevent_signal_mock = mock.Mock()
+        stop_handler_mock = mock.Mock()
+        with mock.patch('source.notification_pusher.gevent.signal', gevent_signal_mock, create=True):
+            with mock.patch('source.notification_pusher.stop_handler', stop_handler_mock, create=True):
+                with mock.patch('notification_pusher.logger.info', mock.Mock(), create=True):
+                    install_signal_handlers()
+                    self.assertEqual(gevent_signal_mock.call_count, 4)
+                    for signum in (signal.SIGTERM, signal.SIGINT, signal.SIGHUP, signal.SIGQUIT):
+                        gevent_signal_mock.assert_any_call(signum, stop_handler_mock, signum)
+
+    def test_parse_cmd_args(self):
+        result_parse = parse_cmd_args(['--config', '/config', '--pid', '/pidfile', '-d'])
+        self.assertEqual(result_parse.config, '/config')
+        self.assertEqual(result_parse.pidfile, '/pidfile')
+        self.assertTrue(result_parse.daemon)
+
+
+    def test_load_config_from_pyfile(self):
+        filepath = 'test_filepath/'
+        test_key_value = {'key1': 1, 'key2': 'value2'}
+        test_key_name = 'my_key_name'
+
+        def my_execfile(filepath, variables):
+            variables['TEST'] = test_key_value
+            variables[test_key_name] = 34
+
+        with mock.patch('__builtin__.execfile', side_effect=my_execfile):
+            cfg = load_config_from_pyfile(filepath)
+
+        self.assertEqual(cfg.TEST, test_key_value)
+        self.assertFalse(hasattr(cfg, test_key_name))
+
+    def test_run_config_exception(self):
+        main_loop_mock = mock.Mock(side_effect=Exception)
+        def sleep(param):
+            notification_pusher.run_application = False
+        logger = mock.Mock()
+        logger.error = mock.Mock()
+        logger.info = mock.Mock()
+        config_mock = mock.Mock()
+        with mock.patch('source.notification_pusher.main_loop', main_loop_mock, create=True):
+            with mock.patch('source.notification_pusher.logger', logger, create=True):
+                with mock.patch('source.notification_pusher.sleep', sleep, create=True):
+                    run_config(config_mock)
+                    notification_pusher.run_application = True
+                    logger.info.assert_called_once_with('Stop application loop in main.')
+                    self.assertTrue(logger.error.call_count == 1)
+
+    def test_main_helper_function(self):
+        patch_all_mock = mock.Mock()
+        dictConfig_mock = mock.Mock()
+        current_thread_mock = mock.Mock()
+        install_signal_handlers_mock = mock.Mock()
+        run_config_mock = mock.Mock()
+        config_mock = mock.Mock()
+        with mock.patch('source.notification_pusher.patch_all', patch_all_mock, create=True):
+            with mock.patch('source.notification_pusher.dictConfig', dictConfig_mock, create=True):
+                with mock.patch('source.notification_pusher.current_thread', current_thread_mock, create=True):
+                    with mock.patch('source.notification_pusher.install_signal_handlers', install_signal_handlers_mock, create=True):
+                        with mock.patch('source.notification_pusher.run_config', run_config_mock, create=True):
+                            main_helper_function(config_mock)
+                            self.assertTrue(patch_all_mock.call_count == 1)
+                            self.assertTrue(dictConfig_mock.call_count == 1)
+                            self.assertTrue(current_thread_mock.call_count == 1)
+                            self.assertTrue(install_signal_handlers_mock.call_count == 1)
+                            self.assertTrue(run_config_mock.call_count == 1)
+
+    def test_main(self):
+        parse_cmd_args_mock = mock.Mock()
+        load_config_from_pyfile_mock = mock.Mock()
+        main_helper_function_mock = mock.Mock()
+        os = mock.Mock()
+        daemonize_mock = mock.Mock()
+        create_pidfile_mock = mock.Mock()
+        with mock.patch('source.notification_pusher.main_helper_function', main_helper_function_mock, create=True):
+            with mock.patch('source.notification_pusher.parse_cmd_args', parse_cmd_args_mock, create=True):
+                with mock.patch('source.notification_pusher.load_config_from_pyfile', load_config_from_pyfile_mock, create=True):
+                    with mock.patch('source.notification_pusher.os', os, create=True):
+                        with mock.patch('source.notification_pusher.daemonize', daemonize_mock, create=True):
+                            with mock.patch('source.notification_pusher.create_pidfile', create_pidfile_mock, create=True):
+                                main([])
+                                self.assertTrue(main_helper_function_mock.call_count == 1)
+                                self.assertTrue(parse_cmd_args_mock.call_count == 1)
+                                self.assertTrue(load_config_from_pyfile_mock.call_count == 1)
+                                self.assertTrue(daemonize_mock.call_count == 1)
+                                self.assertTrue(create_pidfile_mock.call_count == 1)
+
+

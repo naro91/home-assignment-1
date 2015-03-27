@@ -149,7 +149,7 @@ def main_loop(config):
         count=config.WORKER_POOL_SIZE, sleep=config.SLEEP
     ))
     # перенес цикл в отдельную функцию для облегчения тестирования
-    run_greenlet_for_task(run_application, worker_pool, tube, config, processed_task_queue)
+    run_greenlet_for_task(worker_pool, tube, config, processed_task_queue)
 
 
 
@@ -232,24 +232,24 @@ def daemonize():
     """
     Демонизирует текущий процесс.
     """
-    try:
-        pid = os.fork()
-    except OSError as exc:
-        raise Exception("%s [%d]" % (exc.strerror, exc.errno))
+    pid = daemon_os_fork()
 
     if pid == 0:
         os.setsid()
-
-        try:
-            pid = os.fork()
-        except OSError as exc:
-            raise Exception("%s [%d]" % (exc.strerror, exc.errno))
+        # вынес повторяющийся код в отдельную функцию
+        pid = daemon_os_fork()
 
         if pid > 0:
             os._exit(0)
     else:
         os._exit(0)
 
+def daemon_os_fork():
+    try:
+        pid = os.fork()
+        return pid
+    except OSError as exc:
+        raise Exception("%s [%d]" % (exc.strerror, exc.errno))
 
 class Config(object):
     """
@@ -318,7 +318,11 @@ def main(argv):
     config = load_config_from_pyfile(
         os.path.realpath(os.path.expanduser(args.config))
     )
+    # некоторые действия вынесены в отдельные функции для упрощения тестирования
+    main_helper_function(config)
+    return exit_code
 
+def main_helper_function(config):
     patch_all()
 
     dictConfig(config.LOGGING)
@@ -327,6 +331,10 @@ def main(argv):
 
     install_signal_handlers()
 
+    run_config(config)
+
+
+def run_config(config):
     while run_application:
         try:
             main_loop(config)
@@ -339,9 +347,6 @@ def main(argv):
             sleep(config.SLEEP_ON_FAIL)
     else:
         logger.info('Stop application loop in main.')
-
-    return exit_code
-
 
 if __name__ == '__main__':
     sys.exit(main(sys.argv))
