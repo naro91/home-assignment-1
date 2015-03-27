@@ -14,26 +14,44 @@ from lib.worker import worker
 logger = logging.getLogger('redirect_checker')
 
 
+loop = True
+
 def main_loop(config):
     logger.info(
         u'Run main loop. Worker pool size={}. Sleep time is {}.'.format(
             config.WORKER_POOL_SIZE, config.SLEEP
         ))
     parent_pid = os.getpid()
-    while True:
+    while loop:
         if check_network_status(config.CHECK_URL, config.HTTP_TIMEOUT):
-            more_workers(config,parent_pid)
+            required_workers_count = config.WORKER_POOL_SIZE - len(
+                active_children())
+            if required_workers_count > 0:
+                logger.info(
+                    'Spawning {} workers'.format(required_workers_count))
+                spawn_workers(
+                    num=required_workers_count,
+                    target=worker,
+                    args=(config,),
+                    parent_pid=parent_pid
+                )
         else:
-            less_workers()
+            logger.critical('Network is down. stopping workers')
+            for c in active_children():
+                c.terminate()
+
         sleep(config.SLEEP)
 
 
 def main(argv):
     args = parse_cmd_args(argv[1:])
+
     if args.daemon:
         daemonize()
+
     if args.pidfile:
         create_pidfile(args.pidfile)
+
     config = load_config_from_pyfile(
         os.path.realpath(os.path.expanduser(args.config))
     )
@@ -45,20 +63,3 @@ def main(argv):
 
 if __name__ == '__main__':
     sys.exit(main(sys.argv))
-
-def more_workers(config,parent_pid):
-    required_workers_count = config.WORKER_POOL_SIZE - len(
-        active_children())
-    if required_workers_count > 0:
-        logger.info('Spawning {} workers'.format(required_workers_count))
-        spawn_workers(
-            num=required_workers_count,
-            target=worker,
-            args=(config,),
-            parent_pid=parent_pid
-        )
-
-def less_workers():
-    logger.critical('Network is down. stopping workers')
-    for c in active_children():
-        c.terminate()
