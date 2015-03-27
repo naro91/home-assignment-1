@@ -37,10 +37,13 @@ class LibTestCase(unittest.TestCase):
         content = '<meta http-equiv="refresh" content="3;http://www.youtube.com/"><head>'
         self.assertIsNone(source.lib.check_for_meta(content, ''))
 
+    def test_check_for_meta_len_2(self):#incorrect content split
+        content = '<meta http-equiv="refresh" content="url=http://www.youtube.com/"><head>'
+        self.assertEqual(source.lib.check_for_meta(content, ''), None)
+
     def test_fix_market_url(self):
         url = 'market://search?q=pname:net.mandaria.tippytipper'
-        self.assertEqual(source.lib.fix_market_url(url),
-                         'http://play.google.com/store/apps/search?q=pname:net.mandaria.tippytipper')
+        self.assertEqual(source.lib.fix_market_url(url),'http://play.google.com/store/apps/search?q=pname:net.mandaria.tippytipper')
 
     def test_make_pycurl_request(self):
         content = "Test content"
@@ -73,7 +76,6 @@ class LibTestCase(unittest.TestCase):
         with mock.patch('source.lib.make_pycurl_request', mock.Mock(return_value=('content', 'http://odnoklassniki.ru/unittest.redirect'))):
             self.assertEquals(source.lib.get_url('http://odnoklassniki.ru/unittest.redirect',1),(None,None,'content'))
 
-    #god-case?
     def test_get_url_not_redirect(self):
         with mock.patch('source.lib.make_pycurl_request', mock.Mock(return_value=('content', 'http://ololo.ru/sailorspirit'))):
             self.assertEquals(source.lib.get_url("http://ololo.ru/sailorspirit",1),("http://ololo.ru/sailorspirit",source.lib.REDIRECT_HTTP,'content'))
@@ -115,3 +117,16 @@ class LibTestCase(unittest.TestCase):
         with mock.patch('source.lib.prepare_url',mock.Mock(return_value='url1')),\
             mock.patch('source.lib.get_url',mock.Mock(return_value=(None,None,None))):
                 self.assertEquals(source.lib.get_redirect_history('url1',3),([],['url1'],[]))
+
+    def test_prepare_url_none(self):
+        self.assertEquals(source.lib.prepare_url(None),None)
+
+    def test_prepare_url_ok(self):
+        self.assertEquals(source.lib.prepare_url('http://www.mail.ru/news/weather?id=232'),'http://www.mail.ru/news/weather?id=232')
+
+    # def test_prepare_url_unicode_err(self):# how do i mock encode?!
+    #     logger_mock = mock.Mock()
+    #     with mock.patch('__builtin__.encode',mock.Mock(side_effect=UnicodeError)),\
+    #         mock.patch('source.lib.logger.error',logger_mock):
+    #          logger_mock.assert_any_call()
+

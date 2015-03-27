@@ -26,6 +26,7 @@ class UtilsTestCase(unittest.TestCase):
                 with mock.patch('os.setsid', mock.Mock()):
                     utils.daemonize()
                     self.assertEqual(mock_exit.call_count, 1)
+
     def test_demonize_exc(self):
         with mock.patch('os.fork', mock.Mock(side_effect=OSError(1, 'erer')), create=True):
             with mock.patch('os._exit', mock.Mock()):
@@ -39,6 +40,7 @@ class UtilsTestCase(unittest.TestCase):
                 with mock.patch('os.setsid', mock.Mock()):
                     utils.daemonize()
                     self.assertEqual(mock_exit.call_count, 0)
+
     def test_demonize_pid0_exception(self):
         with mock.patch('os.fork', mock.Mock(side_effect=[0, OSError(1, 'Ops')]), create=True):
             with mock.patch('os._exit', mock.Mock()):
@@ -57,8 +59,8 @@ class UtilsTestCase(unittest.TestCase):
         pid = 42
         with mock.patch('source.lib.utils.open', mock.mock_open(), create=True) as m_open:
             with mock.patch('os.getpid', mock.Mock(return_value=pid)):
-                utils.create_pidfile('/some/path')
-        m_open.assert_called_once_with('/some/path', 'w')
+                utils.create_pidfile('/my/way')
+        m_open.assert_called_once_with('/my/way', 'w')
         m_open().write.assert_called_once_with(str(pid))
 
     def test_parse_cmd_args_with_config(self):
@@ -90,7 +92,7 @@ class UtilsTestCase(unittest.TestCase):
         self.assertFalse(parser.daemon)
 
     def test_get_tube_set_args(self):
-        fake_space = 7
+        fake_space = 42
         tarantool_queue_mock = mock.Mock()
         with mock.patch('source.lib.utils.tarantool_queue', tarantool_queue_mock):
             utils.get_tube('DA_HOST', 666, fake_space, 'DA_NAME')

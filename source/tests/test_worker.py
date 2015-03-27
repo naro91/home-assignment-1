@@ -14,8 +14,7 @@ class WokerTestCase(unittest.TestCase):
         }
         with mock.patch('source.lib.worker.get_redirect_history', mock.Mock(return_value=[['ERROR'], [], []])),\
             mock.patch('source.lib.worker.to_unicode', mock.Mock(return_value='url')):
-             waiting_result = (True, mock_task.data)
-             self.assertEqual(worker.get_redirect_history_from_task(mock_task, 1), waiting_result)
+             self.assertEqual(worker.get_redirect_history_from_task(mock_task, 1), (True, mock_task.data))
 
     def test_get_redirect_history_from_task_recheck_not_suspicious(self):
         mock_task = mock.Mock()
@@ -72,6 +71,20 @@ class WokerTestCase(unittest.TestCase):
             worker.worker(config, pid)
             self.assertEqual(mock_get_redirect_history_from_task.call_count, 0)
 
+    def test_worker_no_result(self):########
+        config = mock.MagicMock()
+        pid=42
+        mock_input_tube = mock.MagicMock()
+        mocked_put=mock.Mock()
+        mock_input_tube.put=mocked_put
+        mock_output_tube = mock.MagicMock()
+        mock_get_redirect_history_from_task = mock.Mock(return_value=None)
+        with mock.patch('source.lib.worker.os.path.exists', mock.Mock(side_effect=[True, False])),\
+             mock.patch('source.lib.worker.get_tube', mock.Mock(side_effect=[mock_input_tube, mock_output_tube])),\
+             mock.patch('source.lib.worker.get_redirect_history_from_task', mock_get_redirect_history_from_task):
+            worker.worker(config, pid)
+            self.assertEquals(mock_input_tube.put.call_count,0)
+
     def test_worker_result_input(self):
         config = mock.MagicMock()
         pid=42
@@ -100,20 +113,17 @@ class WokerTestCase(unittest.TestCase):
 
     def test_worker_task_DBException(self):
         config_mock = mock.Mock()
-
         tube_mock = mock.Mock()
         tube_mock.opt = {'tube': 'tube'}
-
         task_mock = mock.Mock()
         task_mock.data = {'url': 'error_url', 'url_id': 5}
         task_mock.meta = mock.Mock(return_value={'pri': 'pri'})
         task_mock.ack = mock.Mock(side_effect=DatabaseError)
         tube_mock.take = mock.Mock(return_value=task_mock)
-        mocked_method = mock.Mock()
         with mock.patch('source.lib.worker.get_tube', mock.Mock(return_value=tube_mock), create=True):
             with mock.patch('source.lib.worker.logger', mock.Mock(), create=True):
                 with mock.patch('os.path.exists', mock.Mock(side_effect=[True, False]), create=True):
                     with mock.patch('source.lib.worker.get_redirect_history_from_task', mock.Mock(return_value=(True, task_mock.data)), create=True):
-                        with mock.patch('source.lib.worker.logger.info', mocked_method, create=True):
+                        with mock.patch('source.lib.worker.logger.info', mock.Mock(), create=True):
                             worker.worker(config_mock, None)
                             self.assertRaises(DatabaseError)

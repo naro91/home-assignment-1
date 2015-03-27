@@ -28,7 +28,7 @@ class RedirectCheckerTestCase(unittest.TestCase):
     def test_main_loop_check_network_status_bad(self):
         mock_spawn_workers = mock.Mock()
         mock_active_children = mock.Mock()
-        with patch('source.redirect_checker.check_net   work_status', mock.Mock(return_value=False)),\
+        with patch('source.redirect_checker.check_network_status', mock.Mock(return_value=False)),\
              patch('source.redirect_checker.spawn_workers', mock_spawn_workers),\
              patch('source.redirect_checker.active_children',return_value=[mock.Mock()]),\
              patch('source.redirect_checker.sleep', mock.Mock(side_effect=stop_cycle)):

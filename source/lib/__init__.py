@@ -190,6 +190,7 @@ def prepare_url(url):
     try:
         netloc = netloc.encode('idna')
     except UnicodeError:
+        logger.error('unicode error'+url)
         pass
     path = quote(to_str(path, 'ignore'), safe='/%+$!*\'(),')
     qs = quote_plus(to_str(qs, 'ignore'), safe=':&%=+$!*\'(),')
