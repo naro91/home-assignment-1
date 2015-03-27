@@ -76,20 +76,18 @@ def done_with_processed_tasks(task_queue):
     logger.debug('Send info about finished tasks to queue.')
 
     for _ in xrange(task_queue.qsize()):
+        task, action_name = task_queue.get_nowait()
+
+        logger.debug('{name} task#{task_id}.'.format(
+            name=action_name.capitalize(),
+            task_id=task.task_id
+        ))
+
         try:
-            task, action_name = task_queue.get_nowait()
+            getattr(task, action_name)()
+        except tarantool.DatabaseError as exc:
+            logger.exception(exc)
 
-            logger.debug('{name} task#{task_id}.'.format(
-                name=action_name.capitalize(),
-                task_id=task.task_id
-            ))
-
-            try:
-                getattr(task, action_name)()
-            except tarantool.DatabaseError as exc:
-                logger.exception(exc)
-        except gevent_queue.Empty:
-            break
 
 
 def stop_handler(signum):
@@ -177,19 +175,19 @@ def start_worker_in_cycle(free_workers_count, tube, config, processed_task_queue
 
 def start_worker(number, task, processed_task_queue, config, worker_pool):
     if task:
-                logger.info('Start worker#{number} for task id={task_id}.'.format(
-                    task_id=task.task_id, number=number
-                ))
+        logger.info('Start worker#{number} for task id={task_id}.'.format(
+            task_id=task.task_id, number=number
+        ))
 
-                worker = Greenlet(
-                    notification_worker,
-                    task,
-                    processed_task_queue,
-                    timeout=config.HTTP_CONNECTION_TIMEOUT,
-                    verify=False
-                )
-                worker_pool.add(worker)
-                worker.start()
+        worker = Greenlet(
+            notification_worker,
+            task,
+            processed_task_queue,
+            timeout=config.HTTP_CONNECTION_TIMEOUT,
+            verify=False
+        )
+        worker_pool.add(worker)
+        worker.start()
 
 
 def parse_cmd_args(args):

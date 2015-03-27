@@ -6,6 +6,7 @@ import mock
 from notification_pusher import create_pidfile, notification_worker, done_with_processed_tasks
 import requests
 import tarantool
+import gevent
 import signal
 from source import notification_pusher
 from source.notification_pusher import stop_handler, start_worker, start_worker_in_cycle, run_greenlet_for_task, \
@@ -61,6 +62,16 @@ class NotificationPusherTestCase(unittest.TestCase):
                     task_queue_mock.put.assert_called_once_with((task_mock, 'bury'))
                     self.assertEqual(current_thread_mock.name, "pusher.worker#0")
 
+    # def test_done_with_processed_task_gevent_error(self):
+    #     task_mock = mock.Mock()
+    #     task_mock.task_id = 1
+    #     task_mock.my_action = mock.Mock()
+    #     task_queue_mock = mock.Mock()
+    #     task_queue_mock.qsize = mock.Mock(return_value=1)
+    #     task_queue_mock.get_nowait = mock.Mock(side_effect=gevent_queue.Empty)
+    #     with mock.patch('notification_pusher.logger.debug', mock.Mock(), create=True):
+    #         done_with_processed_tasks(task_queue_mock)
+    #         task_mock.my_action.assert_called_once_with()
 
     def test_done_with_processed_tasks(self):
         task_mock = mock.Mock()
