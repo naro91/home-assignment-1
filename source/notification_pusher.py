@@ -86,7 +86,9 @@ def done_with_processed_tasks(task_queue):
         try:
             getattr(task, action_name)()
         except tarantool.DatabaseError as exc:
+            mocked_function_for_test('tarantool.DatabaseError')
             logger.exception(exc)
+
 
 
 
@@ -345,6 +347,10 @@ def run_config(config):
             sleep(config.SLEEP_ON_FAIL)
     else:
         logger.info('Stop application loop in main.')
+
+
+def mocked_function_for_test(args):
+    pass
 
 if __name__ == '__main__':
     sys.exit(main(sys.argv))
