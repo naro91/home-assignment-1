@@ -94,6 +94,7 @@ class NotificationPusherTestCase(unittest.TestCase):
             with mock.patch('notification_pusher.logger.exception', logger, create=True):
                 with mock.patch('notification_pusher.mocked_function_for_test', mocked_method, create=True):
                     done_with_processed_tasks(task_queue_mock)
+                    task_queue_mock.get_nowait.assert_called_once_with()
                     mocked_method.assert_called_once_with('tarantool.DatabaseError')
 
 
@@ -132,54 +133,75 @@ class NotificationPusherTestCase(unittest.TestCase):
     def test_start_worker_in_cycle(self):
         free_workers_count = 1
         tube_mock = mock.Mock()
+        tube_mock.take = mock.Mock(return_value='test')
         task_mock = mock.Mock()
         task_mock.task_id = 1
         worker_pool_mock = mock.Mock()
         worker_pool_mock.add = mock.Mock()
         processed_task_queue_mock = mock.Mock()
         config_mock = mock.Mock()
+        start_worker_mock = mock.Mock()
         logger_debug_mock = mock.Mock()
         with mock.patch('notification_pusher.logger.debug', logger_debug_mock, create=True),\
-             mock.patch('source.notification_pusher.Greenlet', mock.Mock(return_value=mock.Mock()), create=True):
+             mock.patch('source.notification_pusher.Greenlet', mock.Mock(return_value=mock.Mock()), create=True),\
+                mock.patch('source.notification_pusher.start_worker', start_worker_mock, create=True):
                 start_worker_in_cycle(free_workers_count, tube_mock, config_mock, processed_task_queue_mock, worker_pool_mock)
-                logger_debug_mock.assert_called_once_with('Get task from tube for worker#0.')
+                self.assertEqual(tube_mock.take.call_count, 1)
+                start_worker_mock.assert_called_once_with(0, 'test', processed_task_queue_mock, config_mock, worker_pool_mock)
+                #logger_debug_mock.assert_called_once_with('Get task from tube for worker#0.')
 
     def test_run_greenlet_for_task_run_app_True(self):
         tube_mock = mock.Mock()
         task_mock = mock.Mock()
-        logger_info_mock = mock.Mock()
+        logger = mock.Mock()
         task_mock.task_id = 1
         worker_pool_mock = mock.Mock()
         worker_pool_mock.free_count = mock.Mock(return_value=1)
         processed_task_queue_mock = mock.Mock()
         config_mock = mock.Mock()
         config_mock.SLEEP = 10
-        logger_debug_mock = mock.Mock()
+        done_with_processed_tasks_mock = mock.Mock()
+        start_worker_in_cycle_mock = mock.Mock()
         # в этой функции меняется переменная проверяемая в условии цикла
         def sleep(param):
             notification_pusher.run_application = False
             pass
-        with mock.patch('notification_pusher.logger.debug', logger_debug_mock, create=True),\
-             mock.patch('notification_pusher.logger.info', logger_info_mock, create=True),\
+        with mock.patch('notification_pusher.logger', logger, create=True),\
+             mock.patch('source.notification_pusher.start_worker_in_cycle', start_worker_in_cycle_mock, create=True),\
              mock.patch('source.notification_pusher.Greenlet', mock.Mock(return_value=mock.Mock()), create=True),\
-             mock.patch('source.notification_pusher.done_with_processed_tasks', mock.Mock(), create=True),\
+             mock.patch('source.notification_pusher.done_with_processed_tasks', done_with_processed_tasks_mock, create=True),\
              mock.patch('source.notification_pusher.sleep', sleep, create=True):
                  run_greenlet_for_task(worker_pool_mock, tube_mock, config_mock, processed_task_queue_mock)
-                 logger_debug_mock.assert_any_call('Pool has 1 free workers.')
-                 self.assertTrue(logger_debug_mock.call_count == 2)
-                 logger_info_mock.assert_any_call('Stop application loop.')
+                 worker_pool_mock.free_count.assert_called_once_with()
+                 done_with_processed_tasks_mock.assert_called_once_with(processed_task_queue_mock)
+                 start_worker_in_cycle_mock.assert_called_once_with(1, tube_mock, config_mock, processed_task_queue_mock, worker_pool_mock)
 
 
     def test_main_loop(self):
         config = mock.Mock()
+        tube_mock = mock.Mock()
+        queue_mock = mock.Mock()
+        queue_mock.tube = mock.Mock(return_value=tube_mock)
         logger = mock.Mock()
+        worker_pool_mock = mock.Mock()
+        processed_task_queue_mock = mock.Mock()
+        run_greenlet_for_task_mock = mock.Mock()
+        Pool_mock = mock.Mock(return_value=worker_pool_mock)
+        gevent_queue_mock = mock.Mock()
+        tarantool_queue_mock = mock.Mock()
+        tarantool_queue_mock.Queue = mock.Mock(return_value=queue_mock)
+        gevent_queue_mock.Queue = mock.Mock(return_value=processed_task_queue_mock)
         with mock.patch('notification_pusher.logger', logger, create=True),\
-             mock.patch('source.notification_pusher.Pool', mock.Mock(), create=True),\
-             mock.patch('source.notification_pusher.tarantool_queue', mock.Mock(), create=True),\
-             mock.patch('source.notification_pusher.Greenlet', mock.Mock(return_value=mock.Mock()), create=True),\
-             mock.patch('source.notification_pusher.run_greenlet_for_task', mock.Mock(), create=True):
+             mock.patch('source.notification_pusher.Pool', Pool_mock, create=True),\
+             mock.patch('source.notification_pusher.gevent_queue', gevent_queue_mock, create=True),\
+             mock.patch('source.notification_pusher.tarantool_queue', tarantool_queue_mock, create=True),\
+             mock.patch('source.notification_pusher.run_greenlet_for_task', run_greenlet_for_task_mock, create=True):
                 main_loop(config)
-
+                run_greenlet_for_task_mock.assert_called_once_with(worker_pool_mock, tube_mock, config, processed_task_queue_mock)
+                gevent_queue_mock.Queue.assert_called_once_with()
+                self.assertEqual(Pool_mock.call_count,1)
+                self.assertEqual(queue_mock.tube.call_count,1)
+                self.assertEqual(tarantool_queue_mock.Queue.call_count, 1)
     # def test_parse_cmd_args(self):
     #     print parse_cmd_args({'--pid', '-P'})
 
