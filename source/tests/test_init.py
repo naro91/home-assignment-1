@@ -8,6 +8,7 @@ import source.lib
 class LibTestCase(unittest.TestCase):
     def test_to_unicode_uStr(self):
         self.assertTrue(isinstance(source.lib.to_unicode(u"Hello test !"), unicode))
+        self.assertEquals(source.lib.to_unicode(u"Hello test !"),"Hello test !")
 
     def test_to_unicode_not_uStr(self):
         self.assertTrue(isinstance(source.lib.to_unicode("Hello test"),unicode))
