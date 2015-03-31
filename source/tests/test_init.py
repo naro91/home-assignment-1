@@ -129,9 +129,13 @@ class LibTestCase(unittest.TestCase):
     def test_prepare_url_ok(self):
         self.assertEquals(source.lib.prepare_url('http://www.mail.ru/news/weather?id=232'),'http://www.mail.ru/news/weather?id=232')
 
-    # def test_prepare_url_unicode_err(self):# how do i mock encode?!
-    #     logger_mock = mock.Mock()
-    #     with mock.patch('__builtin__.encode',mock.Mock(side_effect=UnicodeError)),\
-    #         mock.patch('source.lib.logger.error',logger_mock):
-    #          logger_mock.assert_any_call()
-
+    def test_prepare_url_unicode_err(self):# how do i mock encode?!
+        mock_netloc = mock.Mock()
+        mock_netloc.encode.side_effect = UnicodeError
+        mock_urlunparse = mock.Mock(return_value='http://someurl.le/')
+        with mock.patch("source.lib.urlparse", mock.Mock(return_value=(None, mock_netloc, None, None, None, None))),\
+            mock.patch("source.lib.quote", mock.Mock()),\
+            mock.patch("source.lib.quote_plus", mock.Mock()),\
+            mock.patch("source.lib.urlunparse", mock_urlunparse):
+              result = source.lib.prepare_url('http://someurl.le/')
+              self.assertEqual(result, 'http://someurl.le/')
