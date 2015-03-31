@@ -8,6 +8,7 @@ import urllib2
 from tarantool_queue import tarantool_queue
 
 
+
 def daemonize():
     """
     Демонизирует текущий процесс.

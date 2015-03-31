@@ -71,6 +71,12 @@ class LibTestCase(unittest.TestCase):
         with mock.patch('source.lib.pycurl.Curl', mock.Mock(return_value=curl_mock)):
             self.assertEqual(source.lib.make_pycurl_request('url', 1,'safazila'), ('', 'url'))
 
+    def test_make_pycurl_req_timeout(self):
+        curl_mock = mock.Mock()
+        curl_mock.getinfo.return_value = 'url'
+        with mock.patch('lib.pycurl.Curl', mock.Mock(return_value=curl_mock)):
+            self.assertEqual(source.lib.make_pycurl_request('url', 7), ('', 'url'))
+            curl_mock.setopt.assert_called_with(curl_mock.TIMEOUT, 7)
 
     def test_get_url_check_error(self):
         with mock.patch('source.lib.make_pycurl_request', mock.Mock(side_effect=ValueError)):
@@ -129,10 +135,13 @@ class LibTestCase(unittest.TestCase):
     def test_prepare_url_ok(self):
         self.assertEquals(source.lib.prepare_url('http://www.mail.ru/news/weather?id=232'),'http://www.mail.ru/news/weather?id=232')
 
-    # def test_prepare_url_unicode_err(self):# how do i mock encode?!
-    #     logger_mock = mock.Mock()
-    #     with mock.patch('__builtin__.encode',mock.Mock(side_effect=UnicodeError)),\
-    #         mock.patch('source.lib.logger.error',logger_mock),\
-    #         mock.patch('source.lib.urlparse', mock.Mock()):
-    #          logger_mock.assert_any_call()
-
+    def test_prepare_url_unicode_err(self):# how do i mock encode?!
+        mock_netloc = mock.Mock()
+        mock_netloc.encode.side_effect = UnicodeError
+        mock_urlunparse = mock.Mock(return_value='http://someurl.le/')
+        with mock.patch("source.lib.urlparse", mock.Mock(return_value=(None, mock_netloc, None, None, None, None))),\
+            mock.patch("source.lib.quote", mock.Mock()),\
+            mock.patch("source.lib.quote_plus", mock.Mock()),\
+            mock.patch("source.lib.urlunparse", mock_urlunparse):
+              result = source.lib.prepare_url('http://someurl.le/')
+              self.assertEqual(result, 'http://someurl.le/')
