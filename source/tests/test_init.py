@@ -45,6 +45,9 @@ class LibTestCase(unittest.TestCase):
     def test_fix_market_url(self):
         url = 'market://search?q=pname:net.mandaria.tippytipper'
         self.assertEqual(source.lib.fix_market_url(url),'http://play.google.com/store/apps/search?q=pname:net.mandaria.tippytipper')
+        self.assertEqual(source.lib.fix_market_url(''),'http://play.google.com/store/apps/')
+        self.assertEqual(source.lib.fix_market_url('someapp'),'http://play.google.com/store/apps/someapp')
+
 
     def test_make_pycurl_request(self):
         content = "Test content"
