@@ -127,6 +127,7 @@ class LibTestCase(unittest.TestCase):
     # def test_prepare_url_unicode_err(self):# how do i mock encode?!
     #     logger_mock = mock.Mock()
     #     with mock.patch('__builtin__.encode',mock.Mock(side_effect=UnicodeError)),\
-    #         mock.patch('source.lib.logger.error',logger_mock):
+    #         mock.patch('source.lib.logger.error',logger_mock),\
+    #         mock.patch('source.lib.urlparse', mock.Mock()):
     #          logger_mock.assert_any_call()
 

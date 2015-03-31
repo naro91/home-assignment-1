@@ -1,6 +1,7 @@
 # coding: utf-8
 
 import json
+from sunau import Error
 import unittest
 import mock
 from notification_pusher import create_pidfile, notification_worker, done_with_processed_tasks
@@ -40,9 +41,7 @@ class NotificationPusherTestCase(unittest.TestCase):
              mock.patch('notification_pusher.logger.info', logger_info_mock, create=True),\
              mock.patch('notification_pusher.requests.post', requests_post_mock, create=True):
                     notification_worker(task_mock, task_queue_mock, 'test_args', test_kwargs = 'ok')
-                    logger_info_mock.assert_any_call('Send data to callback url [tech-mail.ru].')
                     requests_post_mock.assert_called_once_with('tech-mail.ru', 'test_args', data='{"id": 0}', test_kwargs = 'ok')
-                    logger_info_mock.assert_any_call('Callback url [tech-mail.ru] response status code=200.')
                     task_queue_mock.put.assert_called_once_with((task_mock, 'ack'))
                     self.assertEqual(current_thread.name, "pusher.worker#0")
 
@@ -58,7 +57,6 @@ class NotificationPusherTestCase(unittest.TestCase):
              mock.patch('notification_pusher.logger.info', logger_info_mock, create=True),\
              mock.patch('notification_pusher.requests.post', mock.Mock(side_effect=requests.RequestException), create=True):
                     notification_worker(task_mock, task_queue_mock, 'test_args', test_kwargs = 'ok')
-                    logger_info_mock.assert_any_call('Send data to callback url [tech-mail.ru].')
                     task_queue_mock.put.assert_called_once_with((task_mock, 'bury'))
                     self.assertEqual(current_thread_mock.name, "pusher.worker#0")
 
@@ -88,14 +86,15 @@ class NotificationPusherTestCase(unittest.TestCase):
         task_mock = mock.Mock()
         task_mock.my_action = mock.Mock(side_effect=tarantool.DatabaseError)
         task_queue_mock = mock.Mock()
-        task_queue_mock.qsize = mock.Mock(return_value=2)
+        task_queue_mock.qsize = mock.Mock(return_value=1)
         task_queue_mock.get_nowait = mock.Mock(return_value=(task_mock, 'my_action'))
-        logger_debug = mock.Mock()
-        logger_exception = mock.Mock()
-        with mock.patch('notification_pusher.logger.debug', logger_debug, create=True),\
-             mock.patch('notification_pusher.logger.exception', logger_exception, create=True):
-                done_with_processed_tasks(task_queue_mock)
-                self.assertTrue(logger_exception.called)
+        logger = mock.Mock()
+        mocked_method = mock.Mock()
+        with mock.patch('notification_pusher.logger.debug', logger, create=True):
+            with mock.patch('notification_pusher.logger.exception', logger, create=True):
+                with mock.patch('notification_pusher.mocked_function_for_test', mocked_method, create=True):
+                    done_with_processed_tasks(task_queue_mock)
+                    mocked_method.assert_called_once_with('tarantool.DatabaseError')
 
 
     def test_stop_handler(self):
@@ -106,7 +105,7 @@ class NotificationPusherTestCase(unittest.TestCase):
         with mock.patch('notification_pusher.current_thread', mock.Mock(), create=True),\
              mock.patch('notification_pusher.logger.info', logger_info_mock, create=True):
                 stop_handler(signum)
-                self.assertTrue(notification_pusher.run_application == False)
+                self.assertEqual(notification_pusher.run_application, False)
                 self.assertTrue(notification_pusher.exit_code == (notification_pusher.SIGNAL_EXIT_CODE_OFFSET + signum))
                 logger_info_mock.assert_called_once_with('Got signal #{signum}.'.format(signum=signum))
         notification_pusher.run_application = temp_run_application
