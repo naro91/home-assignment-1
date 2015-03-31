@@ -24,6 +24,7 @@ def daemonize():
         try:
             pid = os.fork()
         except OSError as exc:
+
             raise Exception("%s [%d]" % (exc.strerror, exc.errno))
 
         if pid > 0:

@@ -31,7 +31,9 @@ class UtilsTestCase(unittest.TestCase):
         with mock.patch('os.fork', mock.Mock(side_effect=OSError(1, 'erer')), create=True):
             with mock.patch('os._exit', mock.Mock()):
                 with mock.patch('os.setsid', mock.Mock()):
-                    self.assertRaises(Exception,utils.daemonize)
+                    with self.assertRaises(Exception):
+                        utils.daemonize()
+
 
 
     def test_demonize_pid0(self):
