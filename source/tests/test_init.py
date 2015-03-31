@@ -63,13 +63,14 @@ class LibTestCase(unittest.TestCase):
              curl_mock = mock.Mock()
              curl_mock.getinfo.return_value = 'url'
              with mock.patch('source.lib.pycurl.Curl', mock.Mock(return_value=curl_mock)):
-                self.assertEqual(source.lib.make_pycurl_request('url', None, 'user_agent'), ('', 'url'))
+                self.assertEqual(source.lib.make_pycurl_request('url', 1), ('', 'url'))
 
     def test_make_pycurl_request_useragent(self):
         curl_mock = mock.Mock()
         curl_mock.getinfo.return_value = 'url'
         with mock.patch('source.lib.pycurl.Curl', mock.Mock(return_value=curl_mock)):
-            self.assertEqual(source.lib.make_pycurl_request('url', None, 'Safazila'), ('', 'url'))
+            self.assertEqual(source.lib.make_pycurl_request('url', 1,'safazila'), ('', 'url'))
+
 
     def test_get_url_check_error(self):
         with mock.patch('source.lib.make_pycurl_request', mock.Mock(side_effect=ValueError)):
