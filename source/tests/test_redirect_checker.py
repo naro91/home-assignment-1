@@ -32,10 +32,9 @@ class RedirectCheckerTestCase(unittest.TestCase):
              patch('source.redirect_checker.spawn_workers', mock_spawn_workers),\
              patch('source.redirect_checker.active_children',return_value=[mock.Mock()]),\
              patch('source.redirect_checker.sleep', mock.Mock(side_effect=stop_cycle)):
-            redirect_checker.main_loop(config)
-            self.assertEqual(mock_spawn_workers.call_count, 0)
+                redirect_checker.main_loop(config)
+                self.assertEqual(mock_spawn_workers.call_count, 0)
 
-            redirect_checker.loop = True
 
     def test_main_loop_check_network_status_ok_and_workers_number_ok(self):
         mock_spawn_workers = mock.Mock()
@@ -43,9 +42,8 @@ class RedirectCheckerTestCase(unittest.TestCase):
              patch('source.redirect_checker.spawn_workers', mock_spawn_workers),\
              patch('source.redirect_checker.active_children', mock.Mock(return_value=[mock.Mock()])),\
              patch('source.redirect_checker.sleep', mock.Mock(side_effect=stop_cycle)):
-            redirect_checker.main_loop(config)
-            self.assertGreater(mock_spawn_workers.call_count, 0)
-            redirect_checker.loop = True
+                redirect_checker.main_loop(config)
+                self.assertGreater(mock_spawn_workers.call_count, 0)
 
     def test_main_loop_check_network_status_ok_and_workers_number_bad(self):
         mock_stop_cycle = mock.Mock(side_effect=stop_cycle)
@@ -57,7 +55,7 @@ class RedirectCheckerTestCase(unittest.TestCase):
              patch('source.redirect_checker.sleep', mock_stop_cycle):
                 redirect_checker.main_loop(config)
                 self.assertEqual(mock_spawn_workers.call_count, 0)
-                redirect_checker.loop = True
+
 
 
     def test_main_with_incorrect_type_of_param(self):
@@ -103,3 +101,6 @@ class RedirectCheckerTestCase(unittest.TestCase):
                 self.assertEqual(return_exitcode, config.EXIT_CODE)
                 self.assertEqual(mock_daemonize.call_count, 0)
                 self.assertEqual(mock_create_pidfile.call_count, 0)
+
+    def tearDown(self):
+        redirect_checker.loop = True
