@@ -12,12 +12,15 @@ class LibTestCase(unittest.TestCase):
 
     def test_to_unicode_not_uStr(self):
         self.assertTrue(isinstance(source.lib.to_unicode("Hello test"),unicode))
+        self.assertEquals(source.lib.to_unicode("Hello test !"),"Hello test !")
 
     def test_to_str_not_unicode(self):
         self.assertFalse(isinstance(source.lib.to_str("Hello test"), unicode))
+        self.assertEquals(source.lib.to_unicode("Hello test !"),"Hello test !")
 
     def test_to_str_unicode(self):
         self.assertFalse(isinstance(source.lib.to_str(u"Hello test"), unicode))
+        self.assertEquals(source.lib.to_unicode("Hello test !"),"Hello test !")
 
     def test_get_counters(self):
         content = "src='www.google-analytics.com/ga.js.index'"
