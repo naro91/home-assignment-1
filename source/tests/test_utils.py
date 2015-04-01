@@ -73,8 +73,10 @@ class UtilsTestCase(unittest.TestCase):
         self.assertIsNone(parser.pidfile)
 
     def test_parse_cmd_args_without_config(self):
-        with self.assertRaises(SystemExit):
-            utils.parse_cmd_args([])
+        args = []
+        with mock.patch('argparse.ArgumentParser.error', mock.Mock()) as parse_error:
+            utils.parse_cmd_args(args)
+            self.assertTrue(parse_error.called)
 
     def test_parse_cmd_args_check_add_daemon_argument(self):
         args = ['--config', './config',
