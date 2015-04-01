@@ -224,17 +224,16 @@ class NotificationPusherTestCase(unittest.TestCase):
                 self.assertEqual(os.setsid.call_count , 0)
 
     def test_install_signal_handlers(self):
-        gevent_signal_mock = mock.Mock()
         stop_handler_mock = mock.Mock()
-        with mock.patch('source.notification_pusher.gevent.signal', gevent_signal_mock, create=True),\
+        gevent_mock = mock.Mock()
+        gevent_mock.signal = mock.Mock()
+        with mock.patch('source.notification_pusher.gevent', gevent_mock, create=True),\
              mock.patch('source.notification_pusher.stop_handler', stop_handler_mock, create=True),\
-             mock.patch('source.notification_pusher.logger.info', mock.Mock()):
+             mock.patch('source.notification_pusher.logger', mock.Mock(), create=True):
                  install_signal_handlers()
-                 self.assertEqual(gevent_signal_mock.call_count, 4)
-                 for signum in (signal.SIGTERM, signal.SIGINT, signal.SIGHUP, signal.SIGQUIT):
-                      gevent_signal_mock.assert_any_call(signum, stop_handler_mock, signum)
-
-
+                 self.assertEqual(gevent_mock.signal.call_count, 4)
+                 for signum in (signal.SIGQUIT, signal.SIGTERM, signal.SIGINT, signal.SIGQUIT):
+                     gevent_mock.signal.assert_any_call(signum, stop_handler_mock, signum)
 
     def test_parse_cmd_args(self):
         result_parse = parse_cmd_args(['--config', '/config', '--pid', '/pidfile', '-d'])
@@ -311,5 +310,3 @@ class NotificationPusherTestCase(unittest.TestCase):
                 self.assertEqual(load_config_from_pyfile_mock.call_count, 1)
                 self.assertEqual(daemonize_mock.call_count, 1)
                 self.assertEqual(create_pidfile_mock.call_count, 1)
-
-
