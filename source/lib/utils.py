@@ -7,7 +7,11 @@ import urllib2
 
 from tarantool_queue import tarantool_queue
 
+class SomeException1(Exception):
+    pass
 
+class SomeException2(Exception):
+    pass
 
 def daemonize():
     """
@@ -16,7 +20,7 @@ def daemonize():
     try:
         pid = os.fork()
     except OSError as exc:
-        raise Exception("%s [%d]" % (exc.strerror, exc.errno))
+        raise SomeException1("%s [%d]" % (exc.strerror, exc.errno))
 
     if pid == 0:
         os.setsid()
@@ -25,7 +29,7 @@ def daemonize():
             pid = os.fork()
         except OSError as exc:
 
-            raise Exception("%s [%d]" % (exc.strerror, exc.errno))
+            raise SomeException2("%s [%d]" % (exc.strerror, exc.errno))
 
         if pid > 0:
             os._exit(0)

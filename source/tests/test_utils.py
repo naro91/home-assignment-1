@@ -31,7 +31,7 @@ class UtilsTestCase(unittest.TestCase):
         with mock.patch('os.fork', mock.Mock(side_effect=OSError(1, 'erer')), create=True):
             with mock.patch('os._exit', mock.Mock()):
                 with mock.patch('os.setsid', mock.Mock()):
-                    with self.assertRaises(Exception("%s [%d]" % (OSError.strerror, OSError.errno))):
+                    with self.assertRaises(utils.SomeException1):
                         utils.daemonize()
 
 
@@ -47,7 +47,7 @@ class UtilsTestCase(unittest.TestCase):
         with mock.patch('os.fork', mock.Mock(side_effect=[0, OSError(1, 'Ops')]), create=True):
             with mock.patch('os._exit', mock.Mock()):
                 with mock.patch('os.setsid', mock.Mock()):
-                    with self.assertRaises(Exception):
+                    with self.assertRaises(utils.SomeException2):
                         utils.daemonize()
 
     def test_demonize_pid0_pidnot0(self):
