@@ -7,7 +7,6 @@ import mock
 from notification_pusher import create_pidfile, notification_worker, done_with_processed_tasks
 import requests
 import tarantool
-import gevent
 import signal
 from source import notification_pusher
 from source.notification_pusher import stop_handler, start_worker, start_worker_in_cycle, run_greenlet_for_task, \
@@ -60,16 +59,7 @@ class NotificationPusherTestCase(unittest.TestCase):
                     task_queue_mock.put.assert_called_once_with((task_mock, 'bury'))
                     self.assertEqual(current_thread_mock.name, "pusher.worker#0")
 
-    # def test_done_with_processed_task_gevent_error(self):
-    #     task_mock = mock.Mock()
-    #     task_mock.task_id = 1
-    #     task_mock.my_action = mock.Mock()
-    #     task_queue_mock = mock.Mock()
-    #     task_queue_mock.qsize = mock.Mock(return_value=1)
-    #     task_queue_mock.get_nowait = mock.Mock(side_effect=gevent_queue.Empty)
-    #     with mock.patch('notification_pusher.logger.debug', mock.Mock(), create=True):
-    #         done_with_processed_tasks(task_queue_mock)
-    #         task_mock.my_action.assert_called_once_with()
+
 
     def test_done_with_processed_tasks(self):
         task_mock = mock.Mock()
@@ -107,8 +97,7 @@ class NotificationPusherTestCase(unittest.TestCase):
              mock.patch('notification_pusher.logger.info', logger_info_mock, create=True):
                 stop_handler(signum)
                 self.assertEqual(notification_pusher.run_application, False)
-                self.assertTrue(notification_pusher.exit_code == (notification_pusher.SIGNAL_EXIT_CODE_OFFSET + signum))
-                logger_info_mock.assert_called_once_with('Got signal #{signum}.'.format(signum=signum))
+                self.assertEqual(notification_pusher.exit_code, (notification_pusher.SIGNAL_EXIT_CODE_OFFSET + signum))
         notification_pusher.run_application = temp_run_application
         notification_pusher.exit_code = temp_exit_code
 
@@ -126,7 +115,6 @@ class NotificationPusherTestCase(unittest.TestCase):
         with mock.patch('notification_pusher.logger.info',logger_info_mock, create=True ),\
              mock.patch('source.notification_pusher.Greenlet', mock.Mock(return_value=worker_mock), create=True):
                 start_worker(number, task_mock, processed_task_queue_mock, config_mock, worker_pool_mock)
-                logger_info_mock.assert_called_once_with('Start worker#1 for task id=1.')
                 worker_pool_mock.add.assert_called_once_with(worker_mock)
                 worker_mock.start.assert_called_once_with()
 
@@ -148,7 +136,6 @@ class NotificationPusherTestCase(unittest.TestCase):
                 start_worker_in_cycle(free_workers_count, tube_mock, config_mock, processed_task_queue_mock, worker_pool_mock)
                 self.assertEqual(tube_mock.take.call_count, 1)
                 start_worker_mock.assert_called_once_with(0, 'test', processed_task_queue_mock, config_mock, worker_pool_mock)
-                #logger_debug_mock.assert_called_once_with('Get task from tube for worker#0.')
 
     def test_run_greenlet_for_task_run_app_True(self):
         tube_mock = mock.Mock()
@@ -202,8 +189,7 @@ class NotificationPusherTestCase(unittest.TestCase):
                 self.assertEqual(Pool_mock.call_count,1)
                 self.assertEqual(queue_mock.tube.call_count,1)
                 self.assertEqual(tarantool_queue_mock.Queue.call_count, 1)
-    # def test_parse_cmd_args(self):
-    #     print parse_cmd_args({'--pid', '-P'})
+
 
     def test_daemonize(self):
         def os_fork():
@@ -219,11 +205,11 @@ class NotificationPusherTestCase(unittest.TestCase):
         with mock.patch('source.notification_pusher.os', os, create=True):
             daemonize()
             os.setsid.assert_called_once_with()
-            self.assertTrue(os.fork() == 2)
+            self.assertEqual(os.fork(), 2)
             os._exit.assert_called_once_with(0)
             daemonize()
             os.setsid.assert_called_once_with()
-            self.assertTrue(os._exit.call_count == 2)
+            self.assertEqual(os._exit.call_count, 2)
 
     def test_daemon_os_fork_exeption(self):
         os = mock.Mock()
@@ -234,8 +220,8 @@ class NotificationPusherTestCase(unittest.TestCase):
             try:
                 daemon_os_fork()
             except Exception as ex:
-                self.assertTrue(os._exit.call_count == 0)
-                self.assertTrue(os.setsid.call_count == 0)
+                self.assertEqual(os._exit.call_count , 0)
+                self.assertEqual(os.setsid.call_count , 0)
 
     def test_install_signal_handlers(self):
         gevent_signal_mock = mock.Mock()
@@ -283,8 +269,7 @@ class NotificationPusherTestCase(unittest.TestCase):
              mock.patch('source.notification_pusher.sleep', sleep, create=True):
                  run_config(config_mock)
                  notification_pusher.run_application = True
-                 logger.info.assert_called_once_with('Stop application loop in main.')
-                 self.assertTrue(logger.error.call_count == 1)
+                 self.assertEqual(logger.error.call_count, 1)
 
     def test_main_helper_function(self):
         patch_all_mock = mock.Mock()
@@ -299,11 +284,11 @@ class NotificationPusherTestCase(unittest.TestCase):
              mock.patch('source.notification_pusher.install_signal_handlers', install_signal_handlers_mock, create=True),\
              mock.patch('source.notification_pusher.run_config', run_config_mock, create=True):
                  main_helper_function(config_mock)
-                 self.assertTrue(patch_all_mock.call_count == 1)
-                 self.assertTrue(dictConfig_mock.call_count == 1)
-                 self.assertTrue(current_thread_mock.call_count == 1)
-                 self.assertTrue(install_signal_handlers_mock.call_count == 1)
-                 self.assertTrue(run_config_mock.call_count == 1)
+                 self.assertEqual(patch_all_mock.call_count, 1)
+                 self.assertEqual(dictConfig_mock.call_count, 1)
+                 self.assertEqual(current_thread_mock.call_count, 1)
+                 self.assertEqual(install_signal_handlers_mock.call_count, 1)
+                 self.assertEqual(run_config_mock.call_count, 1)
 
     def test_main(self):
         parse_cmd_args_mock = mock.Mock()
@@ -319,10 +304,10 @@ class NotificationPusherTestCase(unittest.TestCase):
              mock.patch('source.notification_pusher.daemonize', daemonize_mock, create=True),\
              mock.patch('source.notification_pusher.create_pidfile', create_pidfile_mock, create=True):
                 main([])
-                self.assertTrue(main_helper_function_mock.call_count == 1)
-                self.assertTrue(parse_cmd_args_mock.call_count == 1)
-                self.assertTrue(load_config_from_pyfile_mock.call_count == 1)
-                self.assertTrue(daemonize_mock.call_count == 1)
-                self.assertTrue(create_pidfile_mock.call_count == 1)
+                self.assertEqual(main_helper_function_mock.call_count, 1)
+                self.assertEqual(parse_cmd_args_mock.call_count, 1)
+                self.assertEqual(load_config_from_pyfile_mock.call_count, 1)
+                self.assertEqual(daemonize_mock.call_count, 1)
+                self.assertEqual(create_pidfile_mock.call_count, 1)
 
 
