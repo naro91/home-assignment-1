@@ -228,11 +228,13 @@ class NotificationPusherTestCase(unittest.TestCase):
         stop_handler_mock = mock.Mock()
         with mock.patch('source.notification_pusher.gevent.signal', gevent_signal_mock, create=True),\
              mock.patch('source.notification_pusher.stop_handler', stop_handler_mock, create=True),\
-             mock.patch('notification_pusher.logger.info', mock.Mock(), create=True):
+             mock.patch('source.notification_pusher.logger.info', mock.Mock()):
                  install_signal_handlers()
                  self.assertEqual(gevent_signal_mock.call_count, 4)
                  for signum in (signal.SIGTERM, signal.SIGINT, signal.SIGHUP, signal.SIGQUIT):
-                     gevent_signal_mock.assert_any_call(signum, stop_handler_mock, signum)
+                      gevent_signal_mock.assert_any_call(signum, stop_handler_mock, signum)
+
+
 
     def test_parse_cmd_args(self):
         result_parse = parse_cmd_args(['--config', '/config', '--pid', '/pidfile', '-d'])

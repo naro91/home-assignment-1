@@ -28,11 +28,11 @@ def mocked_connection():
 
 if __name__ == '__main__':
     suite = unittest.TestSuite((
-        #unittest.makeSuite(NotificationPusherTestCase),
-        #unittest.makeSuite(RedirectCheckerTestCase),
-        #unittest.makeSuite(LibTestCase),
+        unittest.makeSuite(NotificationPusherTestCase),
+        unittest.makeSuite(RedirectCheckerTestCase),
+        unittest.makeSuite(LibTestCase),
         unittest.makeSuite(UtilsTestCase),
-        #unittest.makeSuite(WokerTestCase)
+        unittest.makeSuite(WokerTestCase)
     ))
     with mocked_connection():
         result = unittest.TextTestRunner().run(suite)
